@@ -1,0 +1,50 @@
+num 	/[0-9]+(\.[0-9]*)?([eE][\+\-][0-9]+)?/	{ double.Parse(text) } :: double
+id		/[a-z_][a-z_0-9]*/						{ text } :: string
+param	/:[a-z]/								{ text[1] } :: char
+lparen	/\(/
+rparen	/\)/
+comma	/,/
+plus	/\+/									{ text } :: string
+minus	/\-/									{ text } :: string
+mult	/\*/									{ text } :: string
+divide	/\//									{ text } :: string
+power	/\^/									{ text } :: string
+equal	/=/
+		/ +/
+
+%%
+
+S	->	param id lparen D1 rparen equal E		{ (_1 == 'i') ? ParserHelper.AddFunc(_2, new Func(_7, _4)) : throw new ApplicationException($"Parameter should be ':i'") }
+	|	param id equal E						{ (_1 == 'i') ? ParserHelper.AddVar(_2, _4.SolveTree()) : throw new ApplicationException($"Parameter should be ':i'") }
+	|	E										{ $"Tree: {_1.GetTree()}\nValue: {_1.SolveTree()}" }
+	:: { string }
+	;
+D1	->	id comma D1								{ new List<string>(_3){ _1 } }
+	|	id										{ new List<string>(){ _1 } }
+	:: { List<string> }
+	;
+E	->	E plus T								{ new Node((TokenType.Tok_plus, _2), new Node[]{ _1, _3 }) }
+	|	E minus T								{ new Node((TokenType.Tok_minus, _2), new Node[]{ _1, _3 }) }
+	|	T										{ _1 }
+	:: { Node }
+	;
+T	->	T mult F								{ new Node((TokenType.Tok_mult, _2), new Node[]{ _1, _3 }) }
+	|	T divide F								{ new Node((TokenType.Tok_divide, _2), new Node[]{ _1, _3}) }
+	|	F										{ _1 }
+	:: { Node }
+	;
+F	->	V power F								{ new Node((TokenType.Tok_power, _2), new Node[]{ _1, _3 }) }
+	|	V										{ _1 }
+	:: { Node }
+	;
+V	->	lparen E rparen							{ _2 }
+	|	id lparen D2 rparen						{ new Node((TokenType.Tok_id, _1), _3.ToArray()) }
+	|	id										{ new Node((TokenType.Tok_id, _1)) }
+	|	num										{ new Node((TokenType.Tok_num, _1)) }
+	|	minus V									{ new Node((TokenType.Tok_num, -_2)) }
+	:: { Node }
+	;
+D2	->	E comma D2								{ new List<Node>(_3){ _1 } }
+	|	E										{ new List<Node>(){ _1 } }
+	:: { List<Node> }
+	;
